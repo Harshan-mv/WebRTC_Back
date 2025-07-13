@@ -48,7 +48,11 @@ module.exports = function (io) {
         io.to(roomId).emit("room-empty-timer", { expiresAt: null });
       }
 
-      usersInRoom[roomId].push({ socketId: socket.id, user });
+      // Prevent duplicate socket IDs in usersInRoom
+      const alreadyInRoom = usersInRoom[roomId].some(u => u.socketId === socket.id);
+      if (!alreadyInRoom) {
+        usersInRoom[roomId].push({ socketId: socket.id, user });
+      }
 
       const others = usersInRoom[roomId].filter(u => u.socketId !== socket.id);
       socket.emit("all-users", others.map(u => ({
@@ -175,15 +179,14 @@ module.exports = function (io) {
       });
     });
 
-      socket.on("chat-message", (data) => {
-    const { roomId, ...msg } = data;
-    // Send to everyone except the sender
-    socket.to(roomId).emit("chat-message", msg);
+    socket.on("chat-message", (data) => {
+      const { roomId, ...msg } = data;
+      // Send to everyone except the sender
+      socket.to(roomId).emit("chat-message", msg);
 
-    // Send once to the sender (self), so we can label it "You"
-    socket.emit("chat-message", { ...msg, self: true });
-  });
-
+      // Send once to the sender (self), so we can label it "You"
+      socket.emit("chat-message", { ...msg, self: true });
+    });
 
     socket.on("typing", ({ roomId, user }) => {
       socket.to(roomId).emit("user-typing", user.name);
